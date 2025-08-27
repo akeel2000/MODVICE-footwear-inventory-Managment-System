@@ -1,0 +1,27 @@
+/* src/index.css — Tailwind v4 */
+
+/* Load Tailwind (v4) */
+@import "tailwindcss";
+body { @apply bg-gray-50 text-gray-900; }
+html, body, #root { height: 100%; }
+
+
+/* Light global tweaks that won't fight your components */
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+
+  /* Optional: nicer default focus style for keyboard users */
+  :focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-black/40;
+  }
+
+  /* Optional: a subtle default link color (otherwise use classes) */
+  a {
+    @apply text-blue-600 hover:text-blue-700;
+  }
+}
