@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Download, Filter } from "lucide-react";
 import ProductForm from "./ProductForm";
 import { useAuth } from "../auth/AuthContext";
 import api, { listProducts, listPublicProducts, assetUrl } from "../../services/api";
@@ -20,9 +20,11 @@ export default function ProductsPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   const load = async () => {
+    setLoading(true);
     try {
       const hasToken = !!localStorage.getItem("token");
       let resp;
@@ -45,6 +47,8 @@ export default function ProductsPage() {
       setItems([]);
       const msg = e?.response?.data?.message || e?.message || "Failed to load products";
       toast.error(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -72,119 +76,203 @@ export default function ProductsPage() {
     }
   };
 
+  const stats = useMemo(() => {
+    const total = items.length;
+    const lowStock = items.filter(p => Number(p.quantity ?? 0) <= Number(p.reorderThreshold ?? 3)).length;
+    const outOfStock = items.filter(p => Number(p.quantity ?? 0) === 0).length;
+    return { total, lowStock, outOfStock };
+  }, [items]);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5" size={18} />
-          <input
-            className="pl-10 pr-3 py-2 border rounded-xl w-72"
-            placeholder="Search name, brand, barcode…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      {/* Header */}
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Product Management</h1>
+            <p className="text-gray-600">Manage your product inventory, pricing, and details</p>
+          </div>
+          {user?.role === "Admin" && (
+            <button
+              onClick={() => { setEditing(null); setOpen(true); }}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2.5 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+            >
+              <Plus size={18} /> Add Product
+            </button>
+          )}
         </div>
 
-        {user?.role === "Admin" && (
-          <button
-            onClick={() => { setEditing(null); setOpen(true); }}
-            className="inline-flex items-center gap-2 bg-black text-white rounded-xl px-4 py-2"
-          >
-            <Plus size={18} /> Add Product
-          </button>
-        )}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <StatCard title="Total Products" value={stats.total} />
+          <StatCard title="Low Stock" value={stats.lowStock} type="warning" />
+          <StatCard title="Out of Stock" value={stats.outOfStock} type="error" />
+        </div>
       </div>
 
-      <div className="bg-white border rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left p-3 w-16">Image</th>
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Brand</th>
-              <th className="text-left p-3">Sizes</th>
-              <th className="text-left p-3">Price</th>
-              <th className="text-left p-3">Qty</th>
-              <th className="text-left p-3">Barcode</th>
-              <th className="text-left p-3">Reorder Thr.</th>
-              <th className="text-right p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => {
-              const qty = Number(p.quantity ?? 0);
-              const threshold = Number(p.reorderThreshold ?? 3);
-              const low = qty <= threshold;
-              const imgSrc = p.image ? toAsset(p.image) : "";
-              const price = Number(p.price ?? 0);
-              const sizesDisp = Array.isArray(p.sizes) ? p.sizes.join(", ") : p.size || "—";
+      {/* Search and Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              placeholder="Search products by name, brand, or barcode..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
 
-              return (
-                <tr key={p._id || p.id || p.barcode || p.name} className="border-t">
-                  <td className="p-3">
-                    {imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={p.name || "Product"}
-                        className="h-12 w-12 object-cover rounded-md border"
-                        onError={(e) => {
-                          e.currentTarget.src = "https://via.placeholder.com/48?text=%E2%80%94";
-                        }}
-                      />
-                    ) : <span className="text-xs text-gray-400">—</span>}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span>{p.name || "—"}</span>
-                      {(p.newArrival || p.topSeller || p.trending || p.seasonal) && (
-                        <div className="flex gap-1">
-                          {p.newArrival && <Badge>New</Badge>}
-                          {p.topSeller && <Badge>Fav</Badge>}
-                          {p.trending && <Badge>Trend</Badge>}
-                          {p.seasonal && <Badge>Season</Badge>}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium">
+              <Filter size={16} />
+              Filter
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 font-medium">
+              <Download size={16} />
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Products Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Products ({filtered.length})
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {loading ? "Loading products..." : "All products in your inventory"}
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left p-4 font-semibold text-gray-700 w-20">Image</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Product</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Brand</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Sizes</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Price</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Stock</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Barcode</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Reorder At</th>
+                <th className="text-right p-4 font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filtered.map((p) => {
+                const qty = Number(p.quantity ?? 0);
+                const threshold = Number(p.reorderThreshold ?? 3);
+                const low = qty <= threshold;
+                const outOfStock = qty === 0;
+                const imgSrc = p.image ? toAsset(p.image) : "";
+                const price = Number(p.price ?? 0);
+                const sizesDisp = Array.isArray(p.sizes) ? p.sizes.join(", ") : p.size || "—";
+
+                return (
+                  <tr key={p._id || p.id || p.barcode || p.name} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4">
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={p.name || "Product"}
+                          className="h-12 w-12 object-cover rounded-lg border border-gray-200"
+                          onError={(e) => {
+                            e.currentTarget.src = "https://via.placeholder.com/48?text=No+Image";
+                          }}
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400 text-xs">No Image</span>
                         </div>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-gray-900">{p.name || "—"}</span>
+                        {(p.newArrival || p.topSeller || p.trending || p.seasonal) && (
+                          <div className="flex flex-wrap gap-1">
+                            {p.newArrival && <Badge type="new">New</Badge>}
+                            {p.topSeller && <Badge type="favorite">Favorite</Badge>}
+                            {p.trending && <Badge type="trending">Trending</Badge>}
+                            {p.seasonal && <Badge type="seasonal">Seasonal</Badge>}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4 text-gray-700">{p.brand || "—"}</td>
+                    <td className="p-4 text-gray-700">{sizesDisp}</td>
+                    <td className="p-4 font-medium text-gray-900">{price.toFixed(2)} Rs.</td>
+                    <td className="p-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        outOfStock 
+                          ? 'bg-red-100 text-red-800' 
+                          : low 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-green-100 text-green-800'
+                      }`}>
+                        {qty}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-700">
+                        {p.barcode || "—"}
+                      </code>
+                    </td>
+                    <td className="p-4 text-gray-700">{threshold}</td>
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {user?.role === "Admin" ? (
+                          <>
+                            <button
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors font-medium text-sm"
+                              onClick={() => { setEditing(p); setOpen(true); }}
+                            >
+                              <Pencil size={14} /> Edit
+                            </button>
+                            <button
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-red-700 bg-red-50 rounded-lg hover:bg-red-100 focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition-colors font-medium text-sm"
+                              onClick={() => onDelete(p._id || p.id)}
+                            >
+                              <Trash2 size={14} /> Delete
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500 px-3 py-1.5">Read-only</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {filtered.length === 0 && (
+                <tr>
+                  <td className="p-8 text-center text-gray-500" colSpan={9}>
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="text-4xl mb-2">📦</div>
+                      <div className="text-lg font-medium text-gray-900 mb-1">No products found</div>
+                      <p className="text-gray-600 max-w-md">
+                        {loading ? "Loading products..." : "No products match your search. Try adjusting your filters or add new products."}
+                      </p>
+                      {user?.role === "Admin" && !loading && (
+                        <button
+                          onClick={() => { setEditing(null); setOpen(true); }}
+                          className="mt-4 inline-flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          <Plus size={16} /> Add Your First Product
+                        </button>
                       )}
                     </div>
                   </td>
-                  <td className="p-3">{p.brand || "—"}</td>
-                  <td className="p-3">{sizesDisp}</td>
-                  <td className="p-3">{price.toFixed(2)}</td>
-                  <td className={`p-3 ${low ? "bg-red-50" : ""}`}>{qty}</td>
-                  <td className="p-3">{p.barcode || "—"}</td>
-                  <td className="p-3">{threshold}</td>
-                  <td className="p-3 text-right space-x-2">
-                    {user?.role === "Admin" ? (
-                      <>
-                        <button
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border hover:bg-gray-50"
-                          onClick={() => { setEditing(p); setOpen(true); }}
-                        >
-                          <Pencil size={16} /> Edit
-                        </button>
-                        <button
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border text-red-600 hover:bg-red-50"
-                          onClick={() => onDelete(p._id || p.id)}
-                        >
-                          <Trash2 size={16} /> Delete
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs text-gray-500">Read-only</span>
-                    )}
-                  </td>
                 </tr>
-              );
-            })}
-
-            {filtered.length === 0 && (
-              <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={9}>
-                  No products found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {open && user?.role === "Admin" && (
@@ -199,9 +287,32 @@ export default function ProductsPage() {
   );
 }
 
-function Badge({ children }) {
+function StatCard({ title, value, type = "default" }) {
+  const typeStyles = {
+    default: "bg-white border-gray-200",
+    warning: "bg-yellow-50 border-yellow-200",
+    error: "bg-red-50 border-red-200"
+  };
+
   return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 border">
+    <div className={`rounded-lg border p-4 ${typeStyles[type]}`}>
+      <div className="text-sm font-medium text-gray-600 mb-1">{title}</div>
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function Badge({ children, type = "default" }) {
+  const typeStyles = {
+    default: "bg-gray-100 text-gray-800",
+    new: "bg-blue-100 text-blue-800",
+    favorite: "bg-purple-100 text-purple-800",
+    trending: "bg-orange-100 text-orange-800",
+    seasonal: "bg-green-100 text-green-800"
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeStyles[type]}`}>
       {children}
     </span>
   );

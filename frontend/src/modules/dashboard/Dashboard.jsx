@@ -29,19 +29,43 @@ export default function Dashboard() {
   useEffect(() => { load(); }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="grid md:grid-cols-4 gap-4">
-        <Card title="Products" value={stats.products} />
-        <Card title="Low Stock" value={stats.lowStock} />
-        <Card title="Sales Today (Rs.)" value={stats.salesToday.toFixed(2)} />
-        <Card title="Qty Sold Today" value={stats.qtyToday} />
+    <div className="space-y-6 p-4">
+      {/* Stats Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <Card 
+          title="Products" 
+          value={stats.products} 
+          className="h-full"
+        />
+        <Card 
+          title="Low Stock" 
+          value={stats.lowStock} 
+          className="h-full"
+        />
+        <Card 
+          title="Sales Today (Rs.)" 
+          value={stats.salesToday.toFixed(2)} 
+          className="h-full"
+        />
+        <Card 
+          title="Qty Sold Today" 
+          value={stats.qtyToday} 
+          className="h-full"
+        />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      {/* Chart and Alerts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         <div className="lg:col-span-2">
-          <InventoryChart />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+            <InventoryChart />
+          </div>
         </div>
-        <LowStockAlerts onAnyChange={load} />
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 h-full">
+            <LowStockAlerts onAnyChange={load} />
+          </div>
+        </div>
       </div>
     </div>
   );

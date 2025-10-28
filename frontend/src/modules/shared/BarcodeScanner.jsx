@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { NotFoundException, BarcodeFormat, DecodeHintType } from "@zxing/library";
+import { Camera, RotateCcw, Upload, Zap, ZoomIn, X, Smartphone } from "lucide-react";
 
 export default function BarcodeScanner({ onDetected, onClose, onlyQr = false }) {
   const videoRef = useRef(null);
@@ -220,25 +221,53 @@ export default function BarcodeScanner({ onDetected, onClose, onlyQr = false }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 grid place-items-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden">
-        <div className="flex items-center justify-between p-3 border-b">
-          <h3 className="font-semibold">Scan Barcode / QR</h3>
-          <button onClick={handleClose} className="text-gray-500 hover:text-black">✕</button>
+    <div className="fixed inset-0 z-50 bg-black/80 grid place-items-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 bg-white">
+          <div className="flex items-center gap-3">
+            <Camera className="text-blue-600" size={24} />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Barcode Scanner</h3>
+              <p className="text-sm text-gray-600">Scan a barcode or QR code</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div className="relative rounded-lg overflow-hidden bg-black">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full max-h-[60vh] object-contain" />
-            <div className="pointer-events-none absolute inset-0 border-2 border-white/40 m-10 rounded-xl" />
+        {/* Scanner View */}
+        <div className="p-4 md:p-6 space-y-4">
+          <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="w-full h-full object-cover"
+            />
+            {/* Scanner frame overlay */}
+            <div className="pointer-events-none absolute inset-0 border-2 border-white/30 m-8 md:m-12 rounded-lg" />
+            <div className="absolute top-4 right-4">
+              <div className="flex items-center gap-2 px-2 py-1 bg-black/50 rounded-full">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-white">Live</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Controls */}
+          <div className="space-y-4">
+            {/* Camera Selection */}
             {devices.length > 1 && (
-              <>
-                <label className="text-sm text-gray-600">Camera:</label>
+              <div className="flex items-center gap-3">
+                <Smartphone size={18} className="text-gray-500 flex-shrink-0" />
                 <select
-                  className="border rounded-lg px-2 py-1"
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   value={deviceId || ""}
                   onChange={(e) => onChangeCamera(e.target.value)}
                 >
@@ -248,49 +277,82 @@ export default function BarcodeScanner({ onDetected, onClose, onlyQr = false }) 
                     </option>
                   ))}
                 </select>
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={() => startCamera(deviceId)}
-              className="px-3 py-1 rounded-lg border"
-              disabled={starting}
-              title="If iOS/Chrome blocked auto-start, tap here to start."
-            >
-              {starting ? "Starting…" : "Restart"}
-            </button>
-
-            <label className="ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-lg border hover:bg-gray-50 cursor-pointer">
-              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onPickImage} />
-              Upload photo
-            </label>
-
-            {torchSupported && (
-              <button type="button" onClick={toggleTorch} className="px-3 py-1 rounded-lg border">
-                {torchOn ? "Torch: ON" : "Torch: OFF"}
-              </button>
-            )}
-
-            {zoomRange.max > 1 && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600">Zoom</span>
-                <input
-                  type="range"
-                  min={zoomRange.min}
-                  max={zoomRange.max}
-                  step={zoomRange.step}
-                  value={zoom}
-                  onChange={(e) => applyZoom(e.target.value)}
-                />
               </div>
             )}
-          </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
-          {!secure && <div className="text-xs text-gray-600">Tip: camera needs <b>HTTPS</b> or <b>http://localhost</b>.</div>}
-          <div className="text-xs text-gray-500">
-            Tips: Fill 30–50% of view with the code, hold it horizontal (EAN/UPC), avoid glare, and try rotating the phone.
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => startCamera(deviceId)}
+                disabled={starting}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 font-medium"
+              >
+                <RotateCcw size={16} />
+                {starting ? "Starting..." : "Restart Camera"}
+              </button>
+
+              <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer text-gray-700 font-medium">
+                <Upload size={16} />
+                Upload Photo
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onPickImage} />
+              </label>
+
+              {torchSupported && (
+                <button 
+                  type="button" 
+                  onClick={toggleTorch}
+                  className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors font-medium ${
+                    torchOn 
+                      ? 'bg-yellow-100 border-yellow-300 text-yellow-800' 
+                      : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <Zap size={16} />
+                  {torchOn ? "Torch On" : "Torch Off"}
+                </button>
+              )}
+
+              {zoomRange.max > 1 && (
+                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">
+                  <ZoomIn size={16} className="text-gray-500" />
+                  <input
+                    type="range"
+                    min={zoomRange.min}
+                    max={zoomRange.max}
+                    step={zoomRange.step}
+                    value={zoom}
+                    onChange={(e) => applyZoom(e.target.value)}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-600 min-w-8">{zoom.toFixed(1)}x</span>
+                </div>
+              )}
+            </div>
+
+            {/* Error Messages */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="text-sm text-red-700">{error}</div>
+              </div>
+            )}
+
+            {/* Tips & Information */}
+            <div className="space-y-2">
+              {!secure && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="text-sm text-yellow-700">
+                    <strong>Tip:</strong> Camera requires <b>HTTPS</b> or <b>http://localhost</b> to work properly.
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="text-sm text-blue-700">
+                  <strong>Scanning Tips:</strong> Fill 30–50% of view with the code, hold it horizontal (EAN/UPC), avoid glare, and try rotating if needed.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
